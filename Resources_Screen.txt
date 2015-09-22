@@ -1,0 +1,377 @@
+--@name Resources Screen
+--@author TheNextDecade
+--@sharedscreen
+
+Self = ents.self()
+Owner = ents:owner()
+
+if SERVER then
+            if ents.self():class() ~= "starfall_screen" then
+                    error("Not a Starfall screen")
+            else
+                Water    = {}
+                Energy   = {}
+                Refinery = {}
+                LS       = {}
+                Node     = {}
+
+
+                function getResourceEnts()
+                    ShipEnts = Self:getConstraints()
+                    for i=1, #ShipEnts do
+                        local Cur = ShipEnts[i]
+                        if Cur:class() == "stargazer_water_core" then
+                            Water = Cur
+                        elseif Cur:class() == "stargazer_energy_core" then
+                            Energy = Cur
+                        elseif Cur:class() == "stargazer_refinement_core" then
+                            Refinery = Cur
+                        elseif Cur:class() == "stargazer_ls_core" then
+                            LS = Cur
+                        elseif Cur:class() == "stargazer_node" then
+                            Node = Cur
+                        end
+                    end
+                    Water.Pump = Water:getWirelink()["Collector"]
+                end
+
+                function getResourceInfo()
+                    if Node ~= nil then
+                        timer.create("ResRefresh",1,0,function()
+                            Water.Pump = Water:getWirelink()["Collector"]
+                            if Water.Pump:isValid() then
+                                WaterOn = Water.Pump:getWirelink()["Active"]
+                            else
+                                WaterOn = 0
+                            end
+                            WaterCurrent = Node:getWirelink()["Water"]
+                            WaterMax = Node:getWirelink()["Max Water"]
+                            --printConsole("Water  - ", WaterCurrent," Out of ", WaterMax)
+
+                            EnergyOn = Energy:getWirelink()["Active"]
+                            EnergyCurrent = Node:getWirelink()["Energy"]
+                            EnergyMax = Node:getWirelink()["Max Energy"]
+                            --printConsole("Energy - ", EnergyCurrent," Out of ", EnergyMax)
+
+                            RefineryOn = Refinery:getWirelink()["Active"]
+                            DeuteriumCurrent = Node:getWirelink()["Deuterium"]
+                            DeuteriumMax = Node:getWirelink()["Max Deuterium"]
+                            --printConsole("Deut   - ", DeuteriumCurrent," Out of ", DeuteriumMax)
+
+                            LSOn = LS:getWirelink()["Active"]
+                            OxygenCurrent = Node:getWirelink()["Oxygen"]
+                            OxygenMax = Node:getWirelink()["Max Oxygen"]
+                            --printConsole("Oxygen - ", OxygenCurrent," Out of ", OxygenMax)
+                        end)
+                    end
+                end
+
+                function StartVariable()
+                    Started = 0
+
+                    hook("net","ServerRecieve",function()
+                        if Started == 0 then
+                            Started = 1
+                            printConsole("Life Support is turned on!")
+                        else
+                            Started = 0
+                            printConsole("Life Support is turned off!")
+                        end
+                    end)
+                end
+
+                function lifeSupportToggle()
+                    timer.create("toggleCheck",0.5,0,function()
+                        if Started == 1 then
+                            Energy:getWirelink()["Activate"] = 1
+                            if EnergyCurrent > 2000 then
+                                if Water.Pump:isValid() then
+                                    Water.Pump:getWirelink()["Activate"] = 1
+                                end
+                                Refinery:getWirelink()["Activate"] = 1
+                                LS:getWirelink()["Activate"] = 1
+                            end
+                        else
+                            if Water.Pump:isValid() then
+                                Water.Pump:getWirelink()["Activate"] = 0
+                            end
+                            Energy:getWirelink()["Activate"] = 0
+                            Refinery:getWirelink()["Activate"] = 0
+                            LS:getWirelink()["Activate"] = 0
+                        end
+                    end)
+                end
+
+                function resourcesToClient()
+                    net.writeTable({
+                        WaterOn,
+                        EnergyOn,
+                        RefineryOn,
+                        LSOn,
+                        WaterCurrent,
+                        WaterMax,
+                        EnergyCurrent,
+                        EnergyMax,
+                        DeuteriumCurrent,
+                        DeuteriumMax,
+                        OxygenCurrent,
+                        OxygenMax
+                    })
+                end
+
+                function sendToClient()
+                    timer.create("ServNet",1,0,function()
+                        if net.start() then
+                            resourcesToClient()
+                            net.broadcast()
+                        end
+                    end)
+                end
+
+                getResourceEnts()
+                getResourceInfo()
+
+                StartVariable()
+                lifeSupportToggle()
+
+                sendToClient()
+
+            end
+end
+
+if CLIENT then
+            hook("net","ClientRecieve",function()
+                ResourcesData = net.readTable()
+            end)
+
+            --Cursor Stuff
+            function Cursor(ply)
+                local CurPosX,CurPosY = render.cursorPos(ply)
+                if CurPosX ~= nil and CurPosY ~= nil then
+                    return CurPosX,CurPosY
+                end
+            end
+            function Pointer(ply)
+                local CurPosX,CurPosY = render.cursorPos(ply)
+                render.setColor(255,255,255)
+                if CurPosX ~= nil and CurPosY ~= nil then
+                    render.drawRectOutline(CurPosX-3,CurPosY-3,6,6)
+                    render.drawRect(CurPosX-1,CurPosY-1,2,2)
+                end
+            end
+            function Press(ply)
+                return ply:keyDown(input.IN_USE)
+            end
+
+            --Color Stuff
+            function TurnedOn()
+                if CoresOn[1] == 1 then
+                    WCol = {0,100,205}
+                else
+                    WCol = {0,45,100}
+                end
+                if CoresOn[2] == 1 then
+                    ECol = {205,160,0}
+                else
+                    ECol = {100,75,0}
+                end
+                if CoresOn[3] == 1 then
+                    RCol = {0,205,195}
+                else
+                    RCol = {0,100,90}
+                end
+                if CoresOn[4] == 1 then
+                    LSCol = {0,205,0}
+                else
+                    LSCol = {0,100,0}
+                end
+            end
+
+            --Render Stuff
+            function Draw4(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,col)
+                local Polygon = render.createPoly({
+                    render.vertex(p1x,p1y),
+                    render.vertex(p2x,p2y),
+                    render.vertex(p3x,p3y),
+                    render.vertex(p4x,p4y)
+                })
+                if press == 1 then
+                    render.setColor(col[1]+20,col[2]+20,col[3]+20)
+                else
+                    render.setColor(col[1],col[2],col[3])
+                end
+                render.drawPoly(Polygon)
+
+                render.setColor(255,255,255)
+                render.drawLine(p1x,p1y,p2x,p2y)
+                render.drawLine(p2x,p2y,p3x,p3y)
+                render.drawLine(p3x,p3y,p4x,p4y)
+                render.drawLine(p4x,p4y,p1x,p1y)
+            end
+            function Draw6(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,p5x,p5y,p6x,p6y,col)
+                local Polygon = render.createPoly({
+                    render.vertex(p1x,p1y),
+                    render.vertex(p2x,p2y),
+                    render.vertex(p3x,p3y),
+                    render.vertex(p4x,p4y),
+                    render.vertex(p5x,p5y),
+                    render.vertex(p6x,p6y)
+                })
+                if press == 1 then
+                    render.setColor(col[1]+20,col[2]+20,col[3]+20)
+                else
+                    render.setColor(col[1],col[2],col[3])
+                end
+                render.drawPoly(Polygon)
+
+                render.setColor(255,255,255)
+                render.drawLine(p1x,p1y,p2x,p2y)
+                render.drawLine(p2x,p2y,p3x,p3y)
+                render.drawLine(p3x,p3y,p4x,p4y)
+                render.drawLine(p4x,p4y,p5x,p5y)
+                render.drawLine(p5x,p5y,p6x,p6y)
+                render.drawLine(p6x,p6y,p1x,p1y)
+            end
+
+            --Sound Stuff
+            function Beeper()
+                Beep:play()
+                timer.simple(0.2,function() Beep:stop() end)
+            end
+
+            --Button Stuff
+            function Button(xpos1,ypos1,xpos2,ypos2)
+                local num = 0
+                if CurX ~= nil and CurY ~= nil then
+                    if CurX >= xpos1 and CurX <= xpos2 then
+                        if CurY >= ypos1 and CurY <= ypos2 then
+                            if Used then
+                                num = 1
+                                Beeper()
+                                return num
+                            end
+                        end
+                    end
+                end
+            end
+
+            --Prettification Stuff
+            Basic = render.createFont("default",20,1000,1,1,0,0,0)
+            Big = render.createFont("default",50,1000,1,1,0,0,0)
+            Credits = render.createFont("default",10,500,0,0,0,0,0)
+            Beep = sounds.create(Self,"st/console/beep06.wav")
+
+            timer.create("ClientSide",0.5,0,function()
+                if ResourcesData ~= nil then
+                    CoresOn = {ResourcesData[1], ResourcesData[2], ResourcesData[3], ResourcesData[4]}
+
+                    --Resources
+                    ResCurrent = {}
+                    ResCurrent.Water = {ResourcesData[5],ResourcesData[6]}
+                    ResCurrent.Energy = {ResourcesData[7],ResourcesData[8]}
+                    ResCurrent.Deuterium = {ResourcesData[9],ResourcesData[10]}
+                    ResCurrent.Oxygen = {ResourcesData[11],ResourcesData[12]}
+
+                    --Getting the percent
+                    WaterPerc = math.floor(490/ResCurrent.Water[2]*ResCurrent.Water[1]+10)
+                    EnergyPerc = math.floor(490/ResCurrent.Energy[2]*ResCurrent.Energy[1]+10)
+                    DeutPerc = math.floor(490/ResCurrent.Deuterium[2]*ResCurrent.Deuterium[1]+10)
+                    OxygenPerc = math.floor(490/ResCurrent.Oxygen[2]*ResCurrent.Oxygen[1]+10)
+
+                    --[[for i=1, #ResCurrent do
+                        printConsole("Test - ", ResCurrent[i])
+                    end]]
+
+                    --[[timer.create("Test",2,0,function()
+                        if ResourcesInfo ~= nil then
+                            printConsole(ResourcesInfo[1], " - Water is On")
+                            printConsole(ResourcesInfo[5], " - Is how much water we have")
+                        end
+                    end) ]]
+                    hook("render","Rendering",function()
+                        render.clear()
+
+                        --Background
+                        render.setColor(150,150,150)
+                        render.drawRect(0,0,512,512)
+
+                        --Info Stuff
+                        TurnedOn()
+                        CurX, CurY = Cursor(Owner)
+                        Used = Press(Owner)
+
+                        --Resource Meters BG's
+                        BGCol = {50,50,50}
+                        Draw4(0,10,10, 500,10, 500,60,10,60,BGCol)
+                        Draw4(0,10,70, 500,70, 500,120,10,120,BGCol)
+                        Draw4(0,10,130,500,130,500,180,10,180,BGCol)
+                        Draw4(0,10,190,500,190,500,240,10,240,BGCol)
+
+                        --Resource Meters
+                        Draw4(0,10,10, WaterPerc,10, WaterPerc,60,10,60,WCol)
+                        Draw4(0,10,70, EnergyPerc,70, EnergyPerc,120,10,120,ECol)
+                        Draw4(0,10,130,DeutPerc,130,DeutPerc,180,10,180,RCol)
+                        Draw4(0,10,190,OxygenPerc,190,OxygenPerc,240,10,240,LSCol)
+
+
+                        --Resources Text
+                        render.setColor(255,255,255,255)
+                        render.drawText(Basic,256,10,"WATER",render.TEXT_ALIGN_CENTER)
+                        render.drawText(Basic,256,70,"ENERGY",render.TEXT_ALIGN_CENTER)
+                        render.drawText(Basic,256,130,"DEUTERIUM",render.TEXT_ALIGN_CENTER)
+                        render.drawText(Basic,256,190,"OXYGEN",render.TEXT_ALIGN_CENTER)
+                        if ResCurrent.Water ~= nil then
+                            TextWater = tostring(math.floor(ResCurrent.Water[1])).."/"..tostring(ResCurrent.Water[2])
+                            render.drawText(Basic,256,35,TextWater,render.TEXT_ALIGN_CENTER)
+                        end
+                        if ResCurrent.Energy ~= nil then
+                            TextEnergy = tostring(math.floor(ResCurrent.Energy[1])).."/"..tostring(ResCurrent.Energy[2])
+                            render.drawText(Basic,256,95,TextEnergy,render.TEXT_ALIGN_CENTER)
+                        end
+                        if ResCurrent.Deuterium ~= nil then
+                            TextDeut = tostring(math.floor(ResCurrent.Deuterium[1])).."/"..tostring(ResCurrent.Deuterium[2])
+                            render.drawText(Basic,256,155,TextDeut,render.TEXT_ALIGN_CENTER)
+                        end
+                        if ResCurrent.Oxygen ~= nil then
+                            TextOxygen = tostring(math.floor(ResCurrent.Oxygen[1])).."/"..tostring(ResCurrent.Oxygen[2])
+                            render.drawText(Basic,256,215,TextOxygen,render.TEXT_ALIGN_CENTER)
+                        end
+
+                        --Cursor Debug Info
+                        --render.drawText(Basic,10,100,tostring(CurX),render.TEXT_ALIGN_LEFT)
+                        --render.drawText(Basic,10,120,tostring(CurY),render.TEXT_ALIGN_LEFT)
+                        --render.drawText(Basic,10,140,tostring(Used),render.TEXT_ALIGN_LEFT)
+
+
+                        --Everything to do with Buttons
+                        StartBut = Button(10,250,500,500)
+
+                        --Start Button
+                        StartButCol = {150,0,0}
+                        --Draw4(StartBut,300,100,400,100,420,120,320,120,StartButCol)
+                        Draw6(StartBut,10,250,500,250,500,450,450,500,60,500,10,450,StartButCol)
+                        render.drawText(Big,256,350,"START LIFE SUPPORT",render.TEXT_ALIGN_CENTER)
+
+
+                        --Credits
+                        CreBGCol = {120,120,120}
+                        Draw4(0,415,499,510,499,510,510,415,510,CreBGCol)
+                        render.drawText(Credits,509,500,"Author - The Next Decade",render.TEXT_ALIGN_RIGHT)
+
+
+                        --Just the cursor render
+                        Pointer(Owner)
+                    end)
+                end
+            end)
+        --Send To Server
+        hook("starfall_used","Used",function()
+            if StartBut ~= nil then
+                if net.start() then
+                    --local ButString = tostring(StartBut)
+                    --net.writeString(ButString)
+                    net.sendToServer()
+                end
+            end
+        end)
+end

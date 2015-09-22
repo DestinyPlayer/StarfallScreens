@@ -1,0 +1,392 @@
+--@name Warp Control Screen
+--@author The Next Decade
+--@shared
+
+Self  = ents.self()
+Owner = ents.owner()
+
+WarpGroups                     = {"Milky Way","Pegausus","Universe","Other"}
+
+WarpDests                      = {}
+
+WarpDests.MilkyWay             = {}
+WarpDests.MilkyWay.Names       = {"Earth","Moon"}
+WarpDests.MilkyWay["Earth"]    = Vector(109,10616,8305)
+WarpDests.MilkyWay["Moon"]     = Vector(-4314,13676,10349)
+
+WarpDests.Pegausus             = {}
+WarpDests.Pegausus.Names       = {"Shakurus"}
+WarpDests.Pegausus["Shakurus"] = Vector(-9539,-7141,7044)
+
+WarpDests.Universe             = {}
+WarpDests.Universe.Names       = {"Hiigara","Desert","Lava"}
+WarpDests.Universe["Hiigara"]  = Vector(3335,10297,-5790)
+WarpDests.Universe["Desert"]   = Vector(8654,-9989,-8347)
+WarpDests.Universe["Lava"]     = Vector(-10887,634,-3813)
+
+WarpDests.Other                = {}
+WarpDests.Other.Names          = {"Build Room"}
+WarpDests.Other["Build Room"]  = Vector(12533,14255,-15678)
+
+if SERVER then
+    if ents.self():class() ~= "starfall_screen" then
+        error("Not a Starfall screen")
+    else
+        Group = {}
+        GroupName = {}
+        GroupNumber = 0
+        DestNumber = 0
+
+
+        function getWarpDrive()
+            ShipEnts = Self:getConstraints()
+            for i=1, #ShipEnts do
+                local Cur = ShipEnts[i]
+                if Cur:class() == "quantum_slipstream_drive" then
+                    WarpDrive = Cur
+                elseif Cur:class() == "ship_drive" then
+                    WarpDrive = Cur
+                end
+            end
+            printConsole(WarpDrive:class())
+            return WarpDrive:getWirelink()
+        end
+
+        function getGroup()
+            if GroupNumber == 1 then
+                Group = WarpDests.MilkyWay
+            elseif GroupNumber == 2 then
+                Group = WarpDests.Pegausus
+            elseif GroupNumber == 3 then
+                Group = WarpDests.Universe
+            else
+                Group = WarpDests.Other
+            end
+            GroupName = Group.Names
+        end
+
+        function warpStart()
+            if WarpButton == true then
+                return 1
+            else
+                return 0
+            end
+        end
+
+        WD = getWarpDrive()
+
+        hook("net","FromClient",function(Length,Player)
+            WarpButton = net.readBool()
+            GroupNumber = net.readUInt(3)
+            DestNumber = net.readUInt(3)
+
+            getGroup()
+            --if Group ~= nil and GroupName ~= nil then
+                DestName = GroupName[DestNumber]
+                --if DestName ~= nil then
+                Destination = Group[DestName]
+                printConsole(WarpGroups[GroupNumber].." - "..DestName)
+
+                WarpState = warpStart()
+                WD["Destination"] = Destination
+                WD["Activate"] = WarpState
+                WD["Activate"] = 0
+                --end
+            --end
+        end)
+        --timer.create("Stopper",2,0,function()
+        --    WD["Activate"] = 0
+        --end)
+    end
+else
+
+    --Cursor Stuff
+    function Cursor(ply)
+        local CurPosX,CurPosY = render.cursorPos(ply)
+        if CurPosX ~= nil and CurPosY ~= nil then
+            return CurPosX,CurPosY
+        end
+    end
+    function Pointer(ply)
+        local CurPosX,CurPosY = render.cursorPos(ply)
+        render.setColor(255,255,255)
+        if CurPosX ~= nil and CurPosY ~= nil then
+            render.drawRectOutline(CurPosX-3,CurPosY-3,6,6)
+            render.drawRect(CurPosX-1,CurPosY-1,2,2)
+        end
+    end
+    function Press(ply)
+        return ply:keyDown(input.IN_USE)
+    end
+
+    --Render Stuff
+    function Draw4(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y)
+        })
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x,p1y,p2x,p2y)
+        render.drawLine(p2x,p2y,p3x,p3y)
+        render.drawLine(p3x,p3y,p4x,p4y)
+        render.drawLine(p4x,p4y,p1x,p1y)
+    end
+    function Draw6(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,p5x,p5y,p6x,p6y,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y),
+            render.vertex(p5x,p5y),
+            render.vertex(p6x,p6y)
+        })
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x,p1y,p2x,p2y)
+        render.drawLine(p2x,p2y,p3x,p3y)
+        render.drawLine(p3x,p3y,p4x,p4y)
+        render.drawLine(p4x,p4y,p5x,p5y)
+        render.drawLine(p5x,p5y,p6x,p6y)
+        render.drawLine(p6x,p6y,p1x,p1y)
+    end
+    function Draw8(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,p5x,p5y,p6x,p6y,p7x,p7y,p8x,p8y,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y),
+            render.vertex(p5x,p5y),
+            render.vertex(p6x,p6y),
+            render.vertex(p7x,p7y),
+            render.vertex(p8x,p8y)
+        })
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x,p1y,p2x,p2y)
+        render.drawLine(p2x,p2y,p3x,p3y)
+        render.drawLine(p3x,p3y,p4x,p4y)
+        render.drawLine(p4x,p4y,p5x,p5y)
+        render.drawLine(p5x,p5y,p6x,p6y)
+        render.drawLine(p6x,p6y,p7x,p7y)
+        render.drawLine(p7x,p7y,p8x,p8y)
+        render.drawLine(p8x,p8y,p1x,p1y)
+
+    end
+
+    --Sound Stuff
+    function Beeper()
+        Beep:play()
+        timer.simple(0.2,function() Beep:stop() end)
+    end
+
+    --Button Stuff
+    function Button(xpos1,ypos1,xpos2,ypos2)
+        local num = 0
+        if CurX ~= nil and CurY ~= nil then
+            if CurX >= xpos1 and CurX <= xpos2 then
+                if CurY >= ypos1 and CurY <= ypos2 then
+                    if Used then
+                        num = 1
+                        Beeper()
+                        return num
+                    end
+                end
+            end
+        end
+    end
+
+    --Pre-prettification Stuff
+    Credits = render.createFont("default",10,500,0,0,0,0,0)
+    Big = render.createFont("default",50,1000,1,1,0,0,0)
+    Ancient = render.createFont("anquietas",15,1000,1,1,0,0,0)
+    AncientPretty = render.createFont("anquietas",40,1000,1,1,0,0,0)
+    Beep = sounds.create(Self,"st/console/beep06.wav")
+
+    --Pre-render stuff
+    DestNum      = 1
+    GroupNum     = 1
+    DestPressed  = 0
+    GroupPressed = 0
+    WarpBut      = 0
+    NetTable     = {}
+
+    timer.create("ClientSide",0.5,0,function()
+
+        hook("render","Rendering",function()
+            CurX,CurY = Cursor(Owner)
+            Used = Press(Owner)
+
+            render.clear()
+
+            --Background
+            render.setColor(150,150,150)
+            render.drawRect(0,0,512,512)
+
+            --Group BG
+            BGCol = {50,50,50}
+            Draw8(0,40,10,470,10,500,30,500,60,470,80,40,80,10,60,10,30,BGCol)
+
+            --Group Buttons
+            GroupPrev = Button(15,17,50,73)
+            GroupNext = Button(459,17,494,73)
+
+            --Group Select
+            if GroupNum > 4 then
+                GroupNum = 1
+            elseif GroupNum < 1 then
+                GroupNum = 4
+            end
+            if GroupPressed == 0 then
+                if GroupPrev == 1 then
+                    GroupNum = GroupNum - 1
+                    GroupPressed = 1
+                elseif GroupNext == 1 then
+                    GroupNum = GroupNum + 1
+                    GroupPressed = 1
+                end
+            end
+            if GroupNext ~= 1 and GroupPrev ~= 1 then
+                GroupPressed = 0
+            end
+
+            --Group Table Selector
+            if GroupNum == 1 then
+                SelectedGroup = WarpDests.MilkyWay
+            elseif GroupNum == 2 then
+                SelectedGroup = WarpDests.Pegausus
+            elseif GroupNum == 3 then
+                SelectedGroup = WarpDests.Universe
+            elseif GroupNum == 4 then
+                SelectedGroup = WarpDests.Other
+            end
+
+
+            --Group Buttons Draw
+            SelBtCol = {160,120,50}
+            Draw4(ButPrev,15,38,50,17,50,73,15,52,SelBtCol)
+            Draw4(ButNext,459,17,494,38,494,52,459,73,SelBtCol)
+
+            --Group Name
+            render.setColor(255,255,255)
+            if WarpGroups[GroupNum] ~= nil then
+                render.drawText(Big,256,25,"[> "..WarpGroups[GroupNum].." <]",render.TEXT_ALIGN_CENTER)
+                render.drawText(Ancient,256,15,WarpGroups[GroupNum],render.TEXT_ALIGN_CENTER)
+            end
+
+            --Selector BG
+            BGCol = {50,50,50}
+            Draw8(0,40,90,470,90,500,110,500,140,470,160,40,160,10,140,10,110,BGCol)
+
+            --Selector Buttons
+            DestPrev = Button(15,97,50,153)
+            DestNext = Button(459,97,494,153)
+
+            --Selector Select
+            if DestNum > #SelectedGroup.Names then
+                DestNum = 1
+            elseif DestNum < 1 then
+                DestNum = #SelectedGroup.Names
+            end
+            if DestPressed == 0 then
+                if DestPrev == 1 then
+                    DestNum = DestNum - 1
+                    DestPressed = 1
+                elseif DestNext == 1 then
+                    DestNum = DestNum + 1
+                    DestPressed = 1
+                end
+            end
+            if DestNext ~= 1 and DestPrev ~= 1 then
+                DestPressed = 0
+            end
+
+            --Selector Buttons Draw
+            SelBtCol = {160,120,50}
+            Draw4(DestPrev,15,118,50,97,50,153,15,132,SelBtCol)
+            Draw4(DestNext,459,97,494,118,494,132,459,153,SelBtCol)
+
+            --Destination Name
+            DestName = SelectedGroup.Names[DestNum]
+            render.setColor(255,255,255)
+            if DestName ~= nil then
+                render.drawText(Big,256,105,"[> "..DestName.." <]",render.TEXT_ALIGN_CENTER)
+                render.drawText(Ancient,256,95,DestName,render.TEXT_ALIGN_CENTER)
+            end
+
+            --Warp Button
+            WarpBut = Button(50,226,460,426)
+
+            --Warp Button Draw
+            WpBtCol = {0,100,200}
+            Draw8(WarpBut,80,226,430,226,460,296,460,366,430,426,80,426,50,366,50,296,WpBtCol)
+            render.setColor(255,255,255)
+            render.drawText(Big,256,300,"WARP",render.TEXT_ALIGN_CENTER)
+
+
+            --Prettification draw
+            LineCol = {255,255,255}
+            Draw4(0,25,210,40,210,40,450,25,450,BGCol)
+            Draw4(0,32,210,33,210,33,450,32,450,LineCol)
+
+            Draw4(0,470,210,485,210,485,450,470,450,BGCol)
+            Draw4(0,477,210,478,210,478,450,477,450,LineCol)
+
+            Draw8(0,20,175,490,175,495,180,495,210,490,215,20,215,15,210,15,180,BGCol)
+            Draw8(0,20,445,490,445,495,450,495,480,490,485,20,485,15,480,15,450,BGCol)
+
+            --Prettification text
+            Rand1 = math.random(00000000000000,99999999999999)
+            Rand2 = math.random(00000000000000,99999999999999)
+            render.setColor(255,255,255)
+            render.drawText(AncientPretty,256,450,tostring(Rand1)..tostring(Rand2),render.TEXT_ALIGN_CENTER)
+            render.drawText(AncientPretty,256,180,tostring(Rand2)..tostring(Rand1),render.TEXT_ALIGN_CENTER)
+
+            --Credits
+            CreBGCol = {120,120,120}
+            Draw4(0,415,499,510,499,510,510,415,510,CreBGCol)
+            render.drawText(Credits,509,500,"Author - The Next Decade",render.TEXT_ALIGN_RIGHT)
+
+
+            --Just the cursor render
+            Pointer(Owner)
+        end)
+
+    end)
+
+    --Network stuff
+    hook("starfall_used","Used",function()
+        if ents.player() ~= Owner then return end
+        if not net.start() then return end
+        if WarpBut == 1 then
+            WarpButBool = true
+        else
+            WarpButBool = false
+        end
+        net.writeBool(WarpButBool)
+        net.writeUInt(GroupNum, 3)
+        net.writeUInt(DestNum, 3)
+        net.sendToServer()
+    end)
+
+end

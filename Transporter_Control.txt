@@ -1,0 +1,529 @@
+--@name Transporter Control
+--@author The Next Decade
+--@shared
+
+Self = ents.self()
+Owner = ents.owner()
+
+PlayerList   = find.allPlayers()
+TPadList     = find.byClass("transporter_pad")
+DestNameList = {
+                    "Earth",
+                    "Moon",
+                    "Shakurus",
+                    "Desert",
+                    "Hiigara",
+                    "Lava"
+                }
+DestList     = {
+                    Vector(-359.2,9635,8080), --Earth
+                    Vector(-4516.7,12640.3,9952), --Moon
+                    Vector(-8026,-7756,6889), --Shakurus
+                    Vector(8828.2,-10161.1,-9369.5), --Desert
+                    Vector(3538,8473,-5957), --Hiigara
+                    Vector(-9912,2617.6,-4656),  --Lava
+                    Vector(0,0,0)   --Empty
+
+                }
+
+if SERVER then
+    if Self:class() ~= "starfall_screen" then
+        error("Not a starfall screen")
+    else
+
+        function getTransporterPad()
+            ShipEnts = Self:getConstraints()
+            for i=1,#ShipEnts do
+                local Cur = ShipEnts[i]
+                printConsole(i.." - "..Cur:class())
+                if Cur:class() == "transporter_pad" then
+                    local Transporter = Cur
+                    print("Found the Pad!")
+                    return Transporter:getWirelink()
+                end
+            end
+        end
+
+        function chatControl(msg,ply)
+            PlayerList = find.allPlayers()
+            Message = msg:lower()
+            FullMessage = Message:explode(" ")
+            if FullMessage[1] == "!beam" or FullMessage[1] == "beam" then
+                if FullMessage[2] == "me" then
+                    if FullMessage[3] == "up" or FullMessage[3] == "up!" then
+                        WirePad["Target1"] = Owner
+                        WirePad["Beam to pads"] = 1
+                        WirePad["Beam to pads"] = 0
+                        WirePad["Target1"] = nil
+                    elseif FullMessage[3] == "to" then
+                        local To = FullMessage[4]
+                        for i=1,#DestNameList do
+                            local Cur = DestNameList[i]:lower()
+                            printConsole(Cur)
+                            local Found = string.find(Cur,To)
+                            if Found ~= nil then
+                                WirePad["Target1"] = Owner
+                                WirePad["TargetLocation"] = DestList[i]
+                                WirePad["Beam to vector"] = 1
+                                WirePad["Beam to vector"] = 0
+                                WirePad["Target1"] = nil
+                                WirePad["TargetLocation"] = DestList[7]
+                                return
+                            end
+                        end
+                    end
+                else
+                    local ScndStr = FullMessage[2]
+                    for i=1,#PlayerList do
+                        local Plr = PlayerList[i]
+                        local Name = Plr:name():lower()
+                        local Found = string.find(Name,ScndStr)
+                        if Found ~= nil then
+                            if FullMessage[3] == "up" or FullMessage[3] == "up!" then
+                                WirePad["Target1"] = Plr
+                                WirePad["Beam to pads"] = 1
+                                WirePad["Beam to pads"] = 0
+                                WirePad["Target1"] = nil
+                            elseif FullMessage[3] == "to" then
+                                local To = FullMessage[4]
+                                for i=1,#DestNameList do
+                                    local Cur = DestNameList[i]:lower()
+                                    printConsole(Cur)
+                                    local Found = string.find(Cur,To)
+                                    if Found ~= nil then
+                                        WirePad["Target1"] = Plr
+                                        WirePad["TargetLocation"] = DestList[i]
+                                        WirePad["Beam to vector"] = 1
+                                        WirePad["Beam to vector"] = 0
+                                        WirePad["Target1"] = nil
+                                        WirePad["TargetLocation"] = DestList[7]
+                                        return
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        WirePad = getTransporterPad()
+
+        Page1 = {}
+        Page2 = {}
+
+        hook("net","FromClient",function(Length,Player)
+            Page1[1] = net.readUInt(3)
+            Page1[2] = net.readUInt(3)
+
+            Page2[1] = net.readUInt(3)
+            Page2[2] = net.readUInt(3)
+            Page2[3] = net.readUInt(3)
+            --Players
+            if Page1[1] == 1 then
+                P1PlayerBut = net.readUInt(4)
+            end
+            if Page2[1] == 1 then
+                P2PlayerBut = net.readUInt(4)
+            end
+            --Transporter Pads
+            if Page1[2] == 1 then
+                --
+            end
+            if Page2[3] == 1 then
+                --
+            end
+            --Destinations
+            if Page2[2] == 1 then
+                P2DestBut = net.readUInt(3)
+                --print(P2DestBut)
+            end
+            Energize = net.readBool()
+
+
+            --Transporty Stuff
+            WirePad["Target1"] = PlayerList[P1PlayerBut]
+            WirePad["Target2"] = PlayerList[P2PlayerBut]
+
+            if P2DestBut ~= 0 and P2DestBut ~= nil then
+                WirePad["TargetLocation"] = DestList[P2DestBut]
+            else
+                WirePad["TargetLocation"] = DestList[7]
+            end
+
+
+            if Energize == true then
+                printConsole("Energizing Allowed")
+                if P2DestBut ~= 0 then
+                    printConsole("Beaming to a destination")
+                    WirePad["Beam to vector"] = 1
+                    WirePad["Beam to vector"] = 0
+                    P1PlayerBut = 0
+                    P2PlayerBut = 0
+
+                    P2DestBut = 0
+                end
+            end
+        end)
+
+        chat.listen(chatControl,Owner)
+    end
+else
+    --Cursor Stuff
+    function Cursor(ply)
+        local CurPosX,CurPosY = render.cursorPos(ply)
+        if CurPosX ~= nil and CurPosY ~= nil then
+            return CurPosX,CurPosY
+        end
+    end
+    function Pointer(ply)
+        local CurPosX,CurPosY = render.cursorPos(ply)
+        render.setColor(255,255,255)
+        if CurPosX ~= nil and CurPosY ~= nil then
+            render.drawRectOutline(CurPosX-3,CurPosY-3,6,6)
+            render.drawRect(CurPosX-1,CurPosY-1,2,2)
+        end
+    end
+    function Press(ply)
+        return ply:keyDown(input.IN_USE)
+    end
+
+    --Render Stuff
+    function Draw4(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y)
+        })
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x,p1y,p2x,p2y)
+        render.drawLine(p2x,p2y,p3x,p3y)
+        render.drawLine(p3x,p3y,p4x,p4y)
+        render.drawLine(p4x,p4y,p1x,p1y)
+    end
+    function Draw6(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,p5x,p5y,p6x,p6y,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y),
+            render.vertex(p5x,p5y),
+            render.vertex(p6x,p6y)
+        })
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x,p1y,p2x,p2y)
+        render.drawLine(p2x,p2y,p3x,p3y)
+        render.drawLine(p3x,p3y,p4x,p4y)
+        render.drawLine(p4x,p4y,p5x,p5y)
+        render.drawLine(p5x,p5y,p6x,p6y)
+        render.drawLine(p6x,p6y,p1x,p1y)
+    end
+    function Draw8(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,p5x,p5y,p6x,p6y,p7x,p7y,p8x,p8y,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y),
+            render.vertex(p5x,p5y),
+            render.vertex(p6x,p6y),
+            render.vertex(p7x,p7y),
+            render.vertex(p8x,p8y)
+        })
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x,p1y,p2x,p2y)
+        render.drawLine(p2x,p2y,p3x,p3y)
+        render.drawLine(p3x,p3y,p4x,p4y)
+        render.drawLine(p4x,p4y,p5x,p5y)
+        render.drawLine(p5x,p5y,p6x,p6y)
+        render.drawLine(p6x,p6y,p7x,p7y)
+        render.drawLine(p7x,p7y,p8x,p8y)
+        render.drawLine(p8x,p8y,p1x,p1y)
+
+    end
+
+    --Sound Stuff
+    function Beeper()
+        Beep:play()
+        timer.simple(0.2,function() Beep:stop() end)
+    end
+
+    --Button Stuff
+    function Button(xpos1,ypos1,xpos2,ypos2)
+        local num = 0
+        if CurX ~= nil and CurY ~= nil then
+            if CurX >= xpos1 and CurX <= xpos2 then
+                if CurY >= ypos1 and CurY <= ypos2 then
+                    if Used then
+                        num = 1
+                        Beeper()
+                        return num
+                    end
+                end
+            end
+        end
+    end
+
+    --Field Stuff
+        --Player Menu
+        function playerPrint(x,y,num,col)
+            local BPY = {}
+            PlayerList = find.allPlayers()
+            for i=1,#PlayerList do
+                local Space = y + (50*(i-1)*0.5)
+                if i == num then On = 1 else On = 0 end
+                BPY[i] = Space
+                if PlayerList[i] ~= nil then
+                    local Cur = PlayerList[i]
+                    Draw4(On,x,Space,x+220,Space,x+220,Space+20,x,Space+20,col)
+                    render.drawText(Normal,x+110,Space,Cur:name(),render.TEXT_ALIGN_CENTER)
+                end
+            end
+            return BPY
+        end
+
+        function playerButs(x,y)
+            local Press
+            for i=1,#PlayerList do
+                local Space = y + (50*(i-1)*0.5)
+                Press = Button(x,Space,x+220,Space+20)
+                if Press == 1 then return i end
+            end
+        end
+        --Destination Menu
+        function destPrint(x,y,num,col)
+            local BPY = {}
+            for i=1,#DestNameList do
+                local Space = y + (50*(i-1)*0.5)
+                if i == num then On = 1 else On = 0 end
+                BPY[i] = Space
+                if DestNameList[i] ~= nil then
+                    local Cur = DestNameList[i]
+                    Draw4(On,x,Space,x+220,Space,x+220,Space+20,x,Space+20,col)
+                    render.drawText(Normal,x+110,Space,Cur,render.TEXT_ALIGN_CENTER)
+                end
+            end
+            return BPY
+        end
+
+        function destButs(x,y)
+            local Press
+            for i=1,#DestNameList do
+                local Space = y + (50*(i-1)*0.5)
+                Press = Button(x,Space,x+220,Space+20)
+                if Press == 1 then return i end
+            end
+        end
+
+
+
+    --Pre-prettification Stuff
+    Credits = render.createFont("default",10,500,0,0,0,0,0)
+    Normal = render.createFont("default",20,600,0,0,0,0,0)
+    Big = render.createFont("default",50,1000,1,1,0,0,0)
+    Ancient = render.createFont("anquietas",15,1000,1,1,0,0,0)
+    Beep = sounds.create(Self,"st/console/beep06.wav")
+
+    --Menu Button Init
+        --Page 1
+        Page1 = {1,0}
+        P1PlayerButOn = 0
+        P1PlayerBut = 0
+
+        --Page 2
+        Page2 = {1,0,0}
+        P2PlayerButOn = 0
+        P2PlayerBut = 0
+        P2DestButOn = 0
+        P2DestBut = 0
+    --_______
+
+    hook("render","Rendering",function()
+        render.clear()
+        CurX,CurY = Cursor(Owner)
+        Used = Press(Owner)
+
+        --Background
+        render.setColor(150,150,150)
+        render.drawRect(0,0,512,512)
+
+        --Colors
+        BGCol   = {50, 50, 50 }
+        TestCol = {170,170,170}
+        ButCol  = {170,150,110}
+        EngzCol = {170,180,255}
+
+        --Basic Debug
+        --render.setColor(255,255,255)
+        --render.drawText(Big,256,256,"THIS WAY UP",render.TEXT_ALIGN_CENTER)
+        Draw4(0,20,40,250,40,250,422,20,422,BGCol)
+        Draw4(0,262,40,492,40,492,422,262,422,BGCol)
+
+        --First Field
+            --Menu Buttons
+                --Menu Buttons Press Get
+                PlrMenu1 = Button(20,10,129,35)
+                PadMenu1 = Button(141,10,250,35)
+
+                --Menu Buttons Calculation
+                if PlrMenu1 == 1 then
+                    Page1 = {1,0}
+                elseif PadMenu1 == 1 then
+                    Page1 = {0,1}
+                end
+
+                --Menu Buttons Draw
+                Draw4(Page1[1],20,10,128,10,138,35,20,35,ButCol)
+                Draw4(Page1[2],132,10,250,10,250,35,142,35,ButCol)
+
+                --Menu Buttons Text
+                render.drawText(Normal,75,12,"Players",render.TEXT_ALIGN_CENTER)
+                render.drawText(Normal,197,12,"TPads",render.TEXT_ALIGN_CENTER)
+            --Player Menu
+            if Page1[1] == 1 then
+                --Player Menu Draw
+                P1PlayerButY  = playerPrint(25,45,P1PlayerBut,TestCol)
+                P1PlayerButOn = playerButs(25,45)
+                if P1PlayerButOn ~= 0 and P1PlayerButOn ~= nil then
+                    P1PlayerBut = P1PlayerButOn
+                end
+                --Player Menu Buts
+
+
+            end
+        --_____
+
+
+        --Second Field
+            --Menu Buttons
+                --Menu Buttons Press Get
+                PlrMenu2 = Button(262,10,332,35)
+                DstMenu2 = Button(346,10,410,35)
+                PadMenu2 = Button(424,10,492,35)
+
+                --Menu Buttons Calculation
+                if PlrMenu2 == 1 then
+                    Page2 = {1,0,0}
+                elseif DstMenu2 == 1 then
+                    Page2 = {0,1,0}
+                elseif PadMenu2 == 1 then
+                    Page2 = {0,0,1}
+                end
+
+                --Menu Buttons Draw
+                Draw4(Page2[1],262,10,332,10,342,35,262,35,ButCol)
+                Draw4(Page2[2],336,10,410,10,420,35,346,35,ButCol)
+                Draw4(Page2[3],414,10,492,10,492,35,424,35,ButCol)
+
+                --Menu Buttons Text
+                render.drawText(Normal,302,12,"Players",render.TEXT_ALIGN_CENTER)
+                render.drawText(Normal,379,12,"Dests",render.TEXT_ALIGN_CENTER)
+                render.drawText(Normal,452,12,"TPads",render.TEXT_ALIGN_CENTER)
+            --Player Menu
+            if Page2[1] == 1 then
+                P2PlayerButY  = playerPrint(267,45,P2PlayerBut,TestCol)
+                P2PlayerButOn = playerButs(267,45)
+                if P2PlayerButOn ~= 0 and P2PlayerButOn ~= nil then
+                    P2PlayerBut = P2PlayerButOn
+                end
+
+            end
+            --Transporter Pad Menu
+
+            --Destination Menu
+                --Destination Menu Draw
+                if Page2[2] == 1 then
+                    P2DestButY = destPrint(267,45,P2DestBut,TestCol)
+                    P2DestButOn = destButs(267,45)
+                    if P2DestButOn ~= 0 and P2DestButOn ~= nil then
+                        P2DestBut = P2DestButOn
+                    end
+                end
+        --_____
+
+        --Energize Button
+        Energize = Button(20,430,492,490)
+
+        --Energize Button Draw
+        Draw6(Energize,30,430,482,430,492,460,482,490,30,490,20,460,EngzCol)
+
+        --Energize Button Text
+        render.drawText(Big,256,435,"ENERGIZE",render.TEXT_ALIGN_CENTER)
+
+
+        --Credits
+        CreBGCol = {120,120,120}
+        Draw4(0,415,499,510,499,510,510,415,510,CreBGCol)
+        render.drawText(Credits,509,500,"Author - The Next Decade",render.TEXT_ALIGN_RIGHT)
+
+        --Just the cursor render
+        Pointer(Owner)
+
+    end)
+
+    --Buttons!
+
+    --Network hook
+    hook("starfall_used","Used",function()
+        --print(tostring(CurX)..", "..tostring(CurY)..", "..tostring(Used))
+        if ents.player() ~= Owner then return end
+        if not net.start() then return end
+        --Page1
+        net.writeUInt(Page1[1],3)
+        net.writeUInt(Page1[2],3)
+
+        --Page2
+        net.writeUInt(Page2[1],3)
+        net.writeUInt(Page2[2],3)
+        net.writeUInt(Page2[3],3)
+        --Players
+        if Page1[1] == 1 then
+            net.writeUInt(P1PlayerBut,4)
+        end
+        if Page2[1] == 1 then
+            net.writeUInt(P2PlayerBut,4)
+        end
+        --Transporter Pads
+        if Page1[2] == 1 then
+            --
+        end
+        if Page1[3] == 1 then
+            --
+        end
+        --Destinations
+        if Page2[2] == 1 then
+            net.writeUInt(P2DestBut,3)
+        end
+        if Energize == 1 then
+            EnergBool = true
+            P1PlayerBut = 0
+            P2PlayerBut = 0
+            P2DestBut = 0
+        else
+            EnergBool = false
+        end
+        net.writeBool(EnergBool)
+        net.sendToServer()
+    end)
+end
