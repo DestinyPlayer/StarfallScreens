@@ -5,8 +5,7 @@
 Self = ents.self()
 Owner = ents.owner()
 
-PlayerList   = find.allPlayers()
-TPadList     = find.byClass("transporter_pad")
+PlayerList      = find.allPlayers()
 DestNameList = {
                     "Earth",
                     "Moon",
@@ -16,12 +15,12 @@ DestNameList = {
                     "Lava"
                 }
 DestList     = {
-                    Vector(-359.2,9635,8080), --Earth
-                    Vector(-4516.7,12640.3,9952), --Moon
-                    Vector(-8026,-7756,6889), --Shakurus
-                    Vector(8828.2,-10161.1,-9369.5), --Desert
-                    Vector(3538,8473,-5957), --Hiigara
-                    Vector(-9912,2617.6,-4656),  --Lava
+                    Vector(0,9558.2,8080.0), --Earth
+                    Vector(-3730.8,13271.9,9953.2), --Moon
+                    Vector(-7678.3,-7578.7,6848), --Shakurus
+                    Vector(11407.5,-13066.6,-9280), --Desert
+                    Vector(3636.4,8890.4,-6008), --Hiigara
+                    Vector(-7235.5,-1247,-4656),  --Lava
                     Vector(0,0,0)   --Empty
 
                 }
@@ -30,6 +29,24 @@ if SERVER then
     if Self:class() ~= "starfall_screen" then
         error("Not a starfall screen")
     else
+
+        function whileEnergizing()
+            if WirePad["Energising"] == 1 then
+                if Wait == 0 then
+                    print("Beaming in progress")
+                end
+                Wait = 1
+            end
+            if Wait == 1 then
+                if WirePad["Energising"] == 0 then
+                    print("Beaming finished")
+                    WirePad["Beam to vector"] = 0
+                    WirePad["Target1"] = nil
+                    WirePad["TargetLocation"] = DestList[7]
+                    Wait = 0
+                end
+            end
+        end
 
         function getTransporterPad()
             ShipEnts = Self:getConstraints()
@@ -57,6 +74,18 @@ if SERVER then
                         WirePad["Target1"] = nil
                     elseif FullMessage[3] == "to" then
                         local To = FullMessage[4]
+                        for i=1,#PlayerList do
+                            local Plr2 = PlayerList[i]
+                            local Name2 = Plr2:name():lower()
+                            local Found = string.find(Name2,To)
+                            printConsole(Name2)
+                            if Found ~= nil then
+                                WirePad["Target1"] = Owner
+                                WirePad["TargetLocation"] = Plr2:pos()+Vector(50,0,0)
+                                WirePad["Beam to vector"] = 1
+                                return
+                            end
+                        end
                         for i=1,#DestNameList do
                             local Cur = DestNameList[i]:lower()
                             printConsole(Cur)
@@ -65,9 +94,6 @@ if SERVER then
                                 WirePad["Target1"] = Owner
                                 WirePad["TargetLocation"] = DestList[i]
                                 WirePad["Beam to vector"] = 1
-                                WirePad["Beam to vector"] = 0
-                                WirePad["Target1"] = nil
-                                WirePad["TargetLocation"] = DestList[7]
                                 return
                             end
                         end
@@ -86,6 +112,17 @@ if SERVER then
                                 WirePad["Target1"] = nil
                             elseif FullMessage[3] == "to" then
                                 local To = FullMessage[4]
+                                for i=1,#PlayerList do
+                                    local Plr2 = PlayerList[i]
+                                    local Name2 = Plr2:name():lower()
+                                    local Found = string.find(Name2,To)
+                                    if Found ~= nil then
+                                        WirePad["Target1"] = Plr
+                                        WirePad["TargetLocation"] = Plr2:pos()+Vector(50,0,0)
+                                        WirePad["Beam to vector"] = 1
+                                        return
+                                    end
+                                end
                                 for i=1,#DestNameList do
                                     local Cur = DestNameList[i]:lower()
                                     printConsole(Cur)
@@ -94,9 +131,6 @@ if SERVER then
                                         WirePad["Target1"] = Plr
                                         WirePad["TargetLocation"] = DestList[i]
                                         WirePad["Beam to vector"] = 1
-                                        WirePad["Beam to vector"] = 0
-                                        WirePad["Target1"] = nil
-                                        WirePad["TargetLocation"] = DestList[7]
                                         return
                                     end
                                 end
@@ -108,30 +142,27 @@ if SERVER then
         end
 
         WirePad = getTransporterPad()
+        Wait    = 0
 
         Page1 = {}
         Page2 = {}
 
+        timer.create("Beam Wait",2,0,function()
+            whileEnergizing()
+        end)
+
         hook("net","FromClient",function(Length,Player)
             Page1[1] = net.readUInt(3)
-            Page1[2] = net.readUInt(3)
 
             Page2[1] = net.readUInt(3)
             Page2[2] = net.readUInt(3)
-            Page2[3] = net.readUInt(3)
+
             --Players
             if Page1[1] == 1 then
                 P1PlayerBut = net.readUInt(4)
             end
             if Page2[1] == 1 then
                 P2PlayerBut = net.readUInt(4)
-            end
-            --Transporter Pads
-            if Page1[2] == 1 then
-                --
-            end
-            if Page2[3] == 1 then
-                --
             end
             --Destinations
             if Page2[2] == 1 then
@@ -143,7 +174,7 @@ if SERVER then
 
             --Transporty Stuff
             WirePad["Target1"] = PlayerList[P1PlayerBut]
-            WirePad["Target2"] = PlayerList[P2PlayerBut]
+            --WirePad["Target2"] = PlayerList[P2PlayerBut]
 
             if P2DestBut ~= 0 and P2DestBut ~= nil then
                 WirePad["TargetLocation"] = DestList[P2DestBut]
@@ -151,16 +182,18 @@ if SERVER then
                 WirePad["TargetLocation"] = DestList[7]
             end
 
+            if P2PlayerBut ~= 0 and P2PlayerBut ~= nil then
+                WirePad["TargetLocation"] = PlayerList[P2PlayerBut]:pos()+Vector(0,0,5)
+            end
+
 
             if Energize == true then
                 printConsole("Energizing Allowed")
-                if P2DestBut ~= 0 then
-                    printConsole("Beaming to a destination")
+                if P2DestBut ~= 0 or P2PlayerBut ~= 0 then
+                    printConsole("Beaming to a destination/a player")
                     WirePad["Beam to vector"] = 1
-                    WirePad["Beam to vector"] = 0
                     P1PlayerBut = 0
                     P2PlayerBut = 0
-
                     P2DestBut = 0
                 end
             end
@@ -302,7 +335,6 @@ else
             end
             return BPY
         end
-
         function playerButs(x,y)
             local Press
             for i=1,#PlayerList do
@@ -311,6 +343,7 @@ else
                 if Press == 1 then return i end
             end
         end
+
         --Destination Menu
         function destPrint(x,y,num,col)
             local BPY = {}
@@ -326,7 +359,6 @@ else
             end
             return BPY
         end
-
         function destButs(x,y)
             local Press
             for i=1,#DestNameList do
@@ -335,8 +367,6 @@ else
                 if Press == 1 then return i end
             end
         end
-
-
 
     --Pre-prettification Stuff
     Credits = render.createFont("default",10,500,0,0,0,0,0)
@@ -383,23 +413,15 @@ else
         --First Field
             --Menu Buttons
                 --Menu Buttons Press Get
-                PlrMenu1 = Button(20,10,129,35)
-                PadMenu1 = Button(141,10,250,35)
 
                 --Menu Buttons Calculation
-                if PlrMenu1 == 1 then
-                    Page1 = {1,0}
-                elseif PadMenu1 == 1 then
-                    Page1 = {0,1}
-                end
+                Page1 = {1}
 
                 --Menu Buttons Draw
-                Draw4(Page1[1],20,10,128,10,138,35,20,35,ButCol)
-                Draw4(Page1[2],132,10,250,10,250,35,142,35,ButCol)
+                Draw4(Page1[1],20,10,250,10,250,35,20,35,ButCol)
 
                 --Menu Buttons Text
-                render.drawText(Normal,75,12,"Players",render.TEXT_ALIGN_CENTER)
-                render.drawText(Normal,197,12,"TPads",render.TEXT_ALIGN_CENTER)
+                render.drawText(Normal,130,12,"Players",render.TEXT_ALIGN_CENTER)
             --Player Menu
             if Page1[1] == 1 then
                 --Player Menu Draw
@@ -418,28 +440,24 @@ else
         --Second Field
             --Menu Buttons
                 --Menu Buttons Press Get
-                PlrMenu2 = Button(262,10,332,35)
-                DstMenu2 = Button(346,10,410,35)
-                PadMenu2 = Button(424,10,492,35)
+                PlrMenu2 = Button(262,10,375,35)
+                DstMenu2 = Button(389,10,492,35)
 
                 --Menu Buttons Calculation
                 if PlrMenu2 == 1 then
-                    Page2 = {1,0,0}
+                    Page2 = {1,0}
                 elseif DstMenu2 == 1 then
-                    Page2 = {0,1,0}
-                elseif PadMenu2 == 1 then
-                    Page2 = {0,0,1}
+                    Page2 = {0,1}
                 end
 
                 --Menu Buttons Draw
-                Draw4(Page2[1],262,10,332,10,342,35,262,35,ButCol)
-                Draw4(Page2[2],336,10,410,10,420,35,346,35,ButCol)
-                Draw4(Page2[3],414,10,492,10,492,35,424,35,ButCol)
+                Draw4(Page2[1],262,10,375,10,385,35,262,35,ButCol)
+                Draw4(Page2[2],379,10,492,10,492,35,389,35,ButCol)
 
                 --Menu Buttons Text
-                render.drawText(Normal,302,12,"Players",render.TEXT_ALIGN_CENTER)
-                render.drawText(Normal,379,12,"Dests",render.TEXT_ALIGN_CENTER)
-                render.drawText(Normal,452,12,"TPads",render.TEXT_ALIGN_CENTER)
+                render.drawText(Normal,318,12,"Players",render.TEXT_ALIGN_CENTER)
+                render.drawText(Normal,435,12,"Dests",render.TEXT_ALIGN_CENTER)
+
             --Player Menu
             if Page2[1] == 1 then
                 P2PlayerButY  = playerPrint(267,45,P2PlayerBut,TestCol)
@@ -449,8 +467,6 @@ else
                 end
 
             end
-            --Transporter Pad Menu
-
             --Destination Menu
                 --Destination Menu Draw
                 if Page2[2] == 1 then
@@ -491,25 +507,16 @@ else
         if not net.start() then return end
         --Page1
         net.writeUInt(Page1[1],3)
-        net.writeUInt(Page1[2],3)
 
         --Page2
         net.writeUInt(Page2[1],3)
         net.writeUInt(Page2[2],3)
-        net.writeUInt(Page2[3],3)
         --Players
         if Page1[1] == 1 then
             net.writeUInt(P1PlayerBut,4)
         end
         if Page2[1] == 1 then
             net.writeUInt(P2PlayerBut,4)
-        end
-        --Transporter Pads
-        if Page1[2] == 1 then
-            --
-        end
-        if Page1[3] == 1 then
-            --
         end
         --Destinations
         if Page2[2] == 1 then

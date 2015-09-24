@@ -21,7 +21,7 @@ WarpDests.Pegausus["Shakurus"] = Vector(-9539,-7141,7044)
 WarpDests.Universe             = {}
 WarpDests.Universe.Names       = {"Hiigara","Desert","Lava"}
 WarpDests.Universe["Hiigara"]  = Vector(3335,10297,-5790)
-WarpDests.Universe["Desert"]   = Vector(8654,-9989,-8347)
+WarpDests.Universe["Desert"]   = Vector(7874.1,-10623.7,-8499.1)
 WarpDests.Universe["Lava"]     = Vector(-10887,634,-3813)
 
 WarpDests.Other                = {}
