@@ -1,4 +1,4 @@
---@name Transporter Control
+--@name Transporter Control Remake
 --@author The Next Decade
 --@shared
 
@@ -31,27 +31,13 @@ if SERVER then
         error("Not a starfall screen")
     else
 
-        function whileEnergizing()
-            print("Beaming finished")
-            WirePad["Beam to vector"] = 0
-            WirePad["Target1"] = nil
-            WirePad["Target2"] = nil
-            WirePad["Target3"] = nil
-            WirePad["Target4"] = nil
-            WirePad["Target5"] = nil
-            WirePad["Target6"] = nil
-            WirePad["TargetLocation"] = DestList[7]
-            ToBeam = {}
-            Wait = 0
-        end
-
         function getTransporterPad()
             ShipEnts = Self:getSingleConstrainedEnts()
             local i=0
             timer.create("GTP",0.01,#ShipEnts,function()
                 i = i+1
                 local Cur = ShipEnts[i]
-                printConsole(i.." - "..Cur:class())
+                --printConsole(i.." - "..Cur:class())
                 if Cur:class() == "transporter_pad" then
                     local Transporter = Cur
                     print("Found the Pad!")
@@ -63,149 +49,71 @@ if SERVER then
             end)
         end
 
+        function reset()
+            WirePad["Target1"] = nil
+            WirePad["Target2"] = nil
+            WirePad["Target3"] = nil
+            WirePad["Target4"] = nil
+            WirePad["Target5"] = nil
+            WirePad["Target6"] = nil
+
+            WirePad["Beam to pads"] = 0
+            WirePad["Beam to vector"] = 0
+            WirePad["Beam from pads"] = 0
+            WirePad["Energise pad"] = 0
+            WirePad["TargetLocation"] = DestList[7]
+            WirePad["TargetPad"] = nil
+        end
+
         function chatControl(msg,ply)
-            PlayerList = find.allPlayers()
-            FactionList = faction.getOnlineMembers()
-            Message = msg:lower()
-            FullMessage = Message:explode(" ")
-            ToBeam = {}
-            BeamTo = nil
-            if FullMessage[1] == "!beam" or FullMessage[1] == "beam" then
-                if FullMessage[2] == "me" then
-                    if FullMessage[3] == "up" or FullMessage[3] == "up!" then
-                        WirePad["Target1"] = ply
-                        WirePad["Beam to pads"] = 1
-                    elseif FullMessage[3] == "to" then
-                        local To = FullMessage[4]
-                        for i=1,#PlayerList do
-                            local Plr2 = PlayerList[i]
-                            local Name2 = Plr2:name():lower()
-                            local Found = string.find(Name2,To)
-                            printConsole(Name2)
-                            if Found ~= nil then
-                                WirePad["Target1"] = ply
-                                WirePad["TargetLocation"] = Plr2:pos()+Vector(50,0,0)
-                                WirePad["Beam to vector"] = 1
-                                return
-                            end
-                        end
-                        for i=1,#DestNameList do
-                            local Cur = DestNameList[i]:lower()
-                            printConsole(Cur)
-                            local Found = string.find(Cur,To)
-                            if Found ~= nil then
-                                WirePad["Target1"] = ply
-                                WirePad["TargetLocation"] = DestList[i]
-                                WirePad["Beam to vector"] = 1
-                                return
-                            end
-                        end
-                    end
-                elseif FullMessage[2] == "pad" then
-                    if FullMessage[3] == "to" then
-                        local To = FullMessage[4]
-                        for i=1,#DestNameList do
-                            local Cur = DestNameList[i]:lower()
-                            printConsole(Cur)
-                            local Found = string.find(Cur,To)
-                            if Found ~= nil then
-                                WirePad["TargetLocation"] = DestList[i]
-                                WirePad["Beam from pads"] = 1
-                                return
-                            end
-                        end
-                    end
-                else
-                    if FullMessage[3] == "up" then
-                        local ScndStr = FullMessage[2]:explode(",")
-                        ToBeam = {}
-                        Num = 0
-                        for i=1,#PlayerList do
-                            local Plr = PlayerList[i]
-                            local Name = Plr:name():lower()
-                            for i=1,#ScndStr do
-                                local Found = string.find(Name,ScndStr[i])
-                                if Found ~= nil then
-                                    Num = Num+1
-                                    print(Plr:name().." is getting beamed")
-                                    ToBeam[Num] = Plr
-                                end
-                            end
-                        end
-                        for i=1,#ToBeam do
-                            WirePad["Target"..i] = ToBeam[i]
-                        end
-                        WirePad["Beam to pads"] = 1
-                        ToBeam = {}
-                        BeamTo = {}
-                    elseif FullMessage[3] == "to" then
-                        local To = FullMessage[4]
-                        local ScndStr = FullMessage[2]:explode(",")
-                        ToBeam = {}
-                        Num = 0
-                        for i=1,#PlayerList do
-                            local Plr = PlayerList[i]
-                            local Name = Plr:name():lower()
-                            for i=1,#ScndStr do
-                                local Found = string.find(Name,ScndStr[i])
-                                if Found ~= nil then
-                                    Num = Num+1
-                                    print(Plr:name().." is getting beamed")
-                                    ToBeam[Num] = Plr
-                                end
-                            end
-                        end
-                        for i=1,#PlayerList do
-                            local Plr = PlayerList[i]
-                            local Name = Plr:name():lower()
-                            printConsole(Name)
-                            for i=1,#ScndStr do
-                                local Found = string.find(Name,FullMessage[4])
-                                if Found ~= nil then
-                                    Num = Num+1
-                                    print(Plr:name().." is getting beamed")
-                                    BeamTo = Plr
-                                    WirePad["TargetLocation"] = BeamTo:pos()+Vector(50,0,0)
-                                    WirePad["Beam to vector"] = 1
-                                    Still = 0
-                                    return
-                                end
-                            end
-                        end
-                        for i=1,#DestNameList do
-                            local Cur = DestNameList[i]:lower()
-                            printConsole(Cur)
-                            local Found = string.find(Cur,To)
-                            if Found ~= nil then
-                                if #ToBeam > 1 then
-                                    Still = 1
-                                    for i=1,#ToBeam do
-                                        WirePad["Target"..i] = ToBeam[i]
-                                    end
-                                    WirePad["TargetLocation"] = DestList[i]
-                                    WirePad["Beam to pads"] = 1
-                                    WirePad["Beam to pads"] = 0
-                                    if WirePad["Energising"] ~= 1 then
-                                        timer.create("BDel",0.5,0,function()
-                                            for i=1,#ToBeam do
-                                                WirePad["Target"..i] = ToBeam[i]
-                                            end
-                                            WirePad["Beam to vector"] = 1
-                                        end)
-                                    end
-                                else
-                                    WirePad["TargetLocation"] = DestList[i]
-                                    WirePad["Beam to vector"] = 1
-                                    Still = 0
-                                end
-                                ToBeam = {}
-                                return
-                            end
+            local Mess = msg:lower():explode(" ")
+
+            if Mess[1] == "beam" or Mess[1] == "!beam" or Mess[1] == "/beam" then
+                ToBeam = {}
+
+                if Mess[2] == "me" then
+                    Mess[2] = ply:name():lower()
+                end
+                if Mess[4] == "me" then
+                    Mess[4] = ply:name():lower()
+                end
+
+                Mess[2] = Mess[2]:explode(",")
+
+                local Num = 1
+                for i=1,#PlayerList do
+                    local Cur1 = PlayerList[i]
+                    for i=1,#Mess[2] do
+                        local Cur2 = Mess[2][i]
+                        local Found = string.find(Cur1:name():lower(),Cur2)
+                        printConsole(Cur1:name().." --- "..Cur2.." --- "..tostring(Found))
+                        if Found ~= nil then
+                            --ToBeam[Num] = Cur1
+                            WirePad["Target"..Num] = Cur1
+                            Num = Num + 1
                         end
                     end
                 end
-            end
-        end
+
+                if Mess[3] == "up" then
+                    WirePad["Beam to pads"] = 1
+                    reset()
+                elseif Mess[3] == "to" then
+                    for i=1,#DestNameList do
+                        printConsole(i)
+                        local Cur1 = DestNameList[i]:lower()
+                        local Found = string.find(Cur1,Mess[4])
+                        if Found ~= nil then
+                            WirePad["TargetLocation"] = DestList[i]
+                        end
+                    end
+                    if WirePad["TargetLocation"] ~= DestList[7] then
+                        WirePad["Beam to vector"] = 1
+                        reset()
+                    end
+                end --Up/To check
+            end --Starting check
+        end --chatControl() end
 
         FactionList = faction.getOnlineMembers()
         WirePad = nil
