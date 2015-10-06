@@ -9,97 +9,103 @@ if SERVER then
             if ents.self():class() ~= "starfall_screen" then
                     error("Not a Starfall screen")
             else
-                Water    = {}
-                Energy   = {}
-                Refinery = {}
-                LS       = {}
-                Node     = {}
+                Water    = nil
+                Energy   = nil
+                Refinery = nil
+                LS       = nil
+                Node     = nil
+                Connect  = 0
 
 
                 function getResourceEnts()
-                    ShipEnts = Self:getConstraints()
-                    for i=1, #ShipEnts do
+                    ShipEnts = Self:getSingleConstrainedEnts()
+                    local i = 0
+                    timer.create("RG",0.01,#ShipEnts,function()
+                        i = i+1
                         local Cur = ShipEnts[i]
+                        printConsole(Cur:class())
                         if Cur:class() == "stargazer_water_core" then
                             Water = Cur
+                            Connect = Connect+1
+                            printColor(Color(100,100,255),"Water Core Connected")
+                            print(6-Connect.." - Connections left")
                         elseif Cur:class() == "stargazer_energy_core" then
                             Energy = Cur
+                            Connect = Connect+1
+                            printColor(Color(255,220,150),"Energy Core Connected")
+                            print(6-Connect.." - Connections left")
                         elseif Cur:class() == "stargazer_refinement_core" then
                             Refinery = Cur
+                            Connect = Connect+1
+                            printColor(Color(100,100,150),"Refinery Core Connected")
+                            print(6-Connect.." - Connections left")
                         elseif Cur:class() == "stargazer_ls_core" then
                             LS = Cur
+                            Connect = Connect+1
+                            printColor(Color(10,200,10),"Life Support Connected")
+                            print(6-Connect.." - Connections left")
                         elseif Cur:class() == "stargazer_node" then
                             Node = Cur
-                        end
-                    end
-                    Water.Pump = Water:getWirelink()["Collector"]
-                end
-
-                function getResourceInfo()
-                    if Node ~= nil then
-                        timer.create("ResRefresh",1,0,function()
-                            Water.Pump = Water:getWirelink()["Collector"]
-                            if Water.Pump:isValid() then
-                                WaterOn = Water.Pump:getWirelink()["Active"]
-                            else
-                                WaterOn = 0
-                            end
-                            WaterCurrent = Node:getWirelink()["Water"]
-                            WaterMax = Node:getWirelink()["Max Water"]
-                            --printConsole("Water  - ", WaterCurrent," Out of ", WaterMax)
-
-                            EnergyOn = Energy:getWirelink()["Active"]
-                            EnergyCurrent = Node:getWirelink()["Energy"]
-                            EnergyMax = Node:getWirelink()["Max Energy"]
-                            --printConsole("Energy - ", EnergyCurrent," Out of ", EnergyMax)
-
-                            RefineryOn = Refinery:getWirelink()["Active"]
-                            DeuteriumCurrent = Node:getWirelink()["Deuterium"]
-                            DeuteriumMax = Node:getWirelink()["Max Deuterium"]
-                            --printConsole("Deut   - ", DeuteriumCurrent," Out of ", DeuteriumMax)
-
-                            LSOn = LS:getWirelink()["Active"]
-                            OxygenCurrent = Node:getWirelink()["Oxygen"]
-                            OxygenMax = Node:getWirelink()["Max Oxygen"]
-                            --printConsole("Oxygen - ", OxygenCurrent," Out of ", OxygenMax)
-                        end)
-                    end
-                end
-
-                function StartVariable()
-                    Started = 0
-
-                    hook("net","ServerRecieve",function()
-                        if Started == 0 then
-                            Started = 1
-                            printConsole("Life Support is turned on!")
-                        else
-                            Started = 0
-                            printConsole("Life Support is turned off!")
+                            Connect = Connect+1
+                            printColor(Color(100,100,100),"Resource Node Connected")
+                            print(6-Connect.." - Connections left")
                         end
                     end)
                 end
 
+                function getResourceInfo()
+                    timer.remove("RG")
+                        if Connect < 6 then
+                            Pump = Water:getWirelink()["Collector"]
+                            if Pump:isValid() then
+                                Connect = Connect+1
+                                printColor(Color(10,10,255),"Water Pump Connected")
+                                print(6-Connect.." - Connections left")
+                            end
+                        end
+                        if Connect == 6 then
+                                WaterOn = Pump:getWirelink()["Active"]
+                        else
+                                WaterOn = 0
+                        end
+                        WaterCurrent = Node:getWirelink()["Water"]
+                        WaterMax = Node:getWirelink()["Max Water"]
+                        --printConsole("Water  - ", WaterCurrent," Out of ", WaterMax)
+
+                        EnergyOn = Energy:getWirelink()["Active"]
+                        EnergyCurrent = Node:getWirelink()["Energy"]
+                        EnergyMax = Node:getWirelink()["Max Energy"]
+                        --printConsole("Energy - ", EnergyCurrent," Out of ", EnergyMax)
+
+                        RefineryOn = Refinery:getWirelink()["Active"]
+                        DeuteriumCurrent = Node:getWirelink()["Deuterium"]
+                        DeuteriumMax = Node:getWirelink()["Max Deuterium"]
+                        --printConsole("Deut   - ", DeuteriumCurrent," Out of ", DeuteriumMax)
+
+                        LSOn = LS:getWirelink()["Active"]
+                        OxygenCurrent = Node:getWirelink()["Oxygen"]
+                        OxygenMax = Node:getWirelink()["Max Oxygen"]
+                        --printConsole("Oxygen - ", OxygenCurrent," Out of ", OxygenMax)
+                end
+
                 function lifeSupportToggle()
-                    timer.create("toggleCheck",0.5,0,function()
                         if Started == 1 then
                             Energy:getWirelink()["Activate"] = 1
-                            if EnergyCurrent > 2000 then
-                                if Water.Pump:isValid() then
-                                    Water.Pump:getWirelink()["Activate"] = 1
+                            if EnergyCurrent > 20000 then
+                                if Connect == 6 then
+                                    Pump:getWirelink()["Activate"] = 1
                                 end
                                 Refinery:getWirelink()["Activate"] = 1
                                 LS:getWirelink()["Activate"] = 1
                             end
-                        else
-                            if Water.Pump:isValid() then
-                                Water.Pump:getWirelink()["Activate"] = 0
+                        elseif Started == 0 or EnergyCurrent < 1000 then
+                            if Connect >= 6 then
+                                Pump:getWirelink()["Activate"] = 0
                             end
                             Energy:getWirelink()["Activate"] = 0
                             Refinery:getWirelink()["Activate"] = 0
                             LS:getWirelink()["Activate"] = 0
                         end
-                    end)
                 end
 
                 function resourcesToClient()
@@ -120,30 +126,40 @@ if SERVER then
                 end
 
                 function sendToClient()
-                    timer.create("ServNet",1,0,function()
                         if net.start() then
                             resourcesToClient()
                             net.broadcast()
                         end
-                    end)
                 end
 
                 getResourceEnts()
-                getResourceInfo()
 
-                StartVariable()
-                lifeSupportToggle()
+                Started = 0
 
-                sendToClient()
+                hook("net","ServerRecieve",function()
+                    if Started == 0 then
+                        Started = 1
+                        printConsole("Life Support is turned on!")
+                    else
+                        Started = 0
+                        printConsole("Life Support is turned off!")
+                    end
+                end)
+
+                timer.create("Refr",0.5,0,function()
+                    if Connect >= 5 then
+                        getResourceInfo()
+
+                        lifeSupportToggle()
+
+                        sendToClient()
+                    end
+                end)
 
             end
 end
 
 if CLIENT then
-            hook("net","ClientRecieve",function()
-                ResourcesData = net.readTable()
-            end)
-
             --Cursor Stuff
             function Cursor(ply)
                 local CurPosX,CurPosY = render.cursorPos(ply)
@@ -260,9 +276,10 @@ if CLIENT then
             Big = render.createFont("default",50,1000,1,1,0,0,0)
             Credits = render.createFont("default",10,500,0,0,0,0,0)
             Beep = sounds.create(Self,"st/console/beep06.wav")
-
-            timer.create("ClientSide",0.5,0,function()
+            hook("net","ClientRecieve",function()
+                ResourcesData = net.readTable()
                 if ResourcesData ~= nil then
+                    hook("render","loading",nil)
                     CoresOn = {ResourcesData[1], ResourcesData[2], ResourcesData[3], ResourcesData[4]}
 
                     --Resources
@@ -361,6 +378,12 @@ if CLIENT then
 
                         --Just the cursor render
                         Pointer(Owner)
+                    end)
+                else
+                    hook("render","loading",function()
+                        render.clear()
+                        render.setColor(255,255,255)
+                        render.drawText(Big,256,246,"LOADING",render.TEXT_ALIGN_CENTER)
                     end)
                 end
             end)

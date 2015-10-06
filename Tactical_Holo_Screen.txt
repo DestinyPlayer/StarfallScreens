@@ -1,0 +1,508 @@
+--@name Tactical Holo Screen
+--@author The Next Decade
+--@shared
+--@model models/medicdevicedestiny.mdl
+
+Self = ents.self()
+Owner = ents.owner()
+PlayerList = find.allPlayers()
+
+if SERVER then
+    if ents.self():class() ~= "starfall_emitter" then
+        error("Not a Starfall emitter")
+    else
+        function chatMenu(msg,ply)
+            local Message = msg:lower():explode(" ")
+            if Message[1] == "!page" or Message[1] == "/page" or Message[1] == "page" then
+                Page = tonumber(Message[2])
+            end
+        end
+
+        function tactical(msg,ply)
+            local Message = msg:lower():explode(" ")
+            if Message[1] == "!shield" or Message[1] == "/shield" or Message[1] == "shield" then
+                if Alert < 1 then
+                    print("Alert level is too low")
+                    return
+                end
+                if Message[2] == "on" then
+                    Shield:getWirelink()["Activate"] = 1
+                    --print("Shield turned on")
+                elseif Message[2] == "off" then
+                    Shield:getWirelink()["Activate"] = 0
+                    --print("Shield turned off")
+                elseif Message[2] == "balance" then
+                    Shield:getWirelink()["Divert Power"] = -1
+                    ShDivert = -1
+                    --print("Shields prioritized to all sides")
+                elseif Message[2] == "separate" then
+                    Shield:getWirelink()["Divert Power"] = 0
+                    ShDivert = 0
+                    --print("Shields prioritized to no sides")
+                elseif Message[2] == "front" then
+                    Shield:getWirelink()["Divert Power"] = 1
+                    ShDivert = 3
+                    --print("Shields prioritized to the front")
+                elseif Message[2] == "back" then
+                    Shield:getWirelink()["Divert Power"] = 2
+                    ShDivert = 4
+                    --print("Shields prioritized to the back")
+                elseif Message[2] == "left" then
+                    Shield:getWirelink()["Divert Power"] = 3
+                    ShDivert = 1
+                    --print("Shields prioritized to the left")
+                elseif Message[2] == "right" then
+                    Shield:getWirelink()["Divert Power"] = 4
+                    ShDivert = 2
+                    --print("Shields prioritized to the right")
+                elseif Message[2] == "up" then
+                    Shield:getWirelink()["Divert Power"] = 5
+                    ShDivert = 5
+                    --print("Shields prioritized to the top")
+                elseif Message[2] == "down" then
+                    Shield:getWirelink()["Divert Power"] = 6
+                    ShDivert = 6
+                    --print("Shields prioritized to the bottom")
+                end
+            elseif Message[1] == "!target" or Message[1] == "/target" or Message[1] == "target" then
+                if Alert < 1 then
+                    print("Alert level is too low")
+                    return
+                end
+                if Message[2] == nil then
+                    return
+                end
+                local Tgt = Message[2]
+                for i=1,#AllCoresOwn do
+                    local Found = string.find(AllCoresOwn[i]:name():lower(),Tgt)
+                    if Found ~= nil then
+                        Sensor:getWirelink()["Target"] = AllCores[i]
+                        TgtName = AllCoresOwn[i]:name()
+                        return
+                    end
+
+                end
+                print("No cores belonging to "..Tgt.." found.")
+            end
+            if Message[1] == "!alert" or Message[1] == "/alert" or Message[1] == "alert" then
+                if Message[2] == "green" then
+                    Alert = 0
+                    Shield:getWirelink()["Activate"] = 0
+                    Sensor:getWirelink()["Target"] = nil
+                    print("Alert is set to "..Message[2].."\nShields and weapons are blocked")
+                elseif Message[2] == "yellow" then
+                    Alert = 1
+                    print("Alert is set to "..Message[2].."\nShields are unlocked, weapons are blocked")
+                elseif Message[2] == "red" then
+                    Alert = 2
+                    print("Alert is set to "..Message[2].."\nShields and weapons are unlocked")
+                end
+            end
+        end
+
+
+        function getResources()
+            printColor(Color(255,200,0),"Loading connections")
+            local Constr = Self:getSingleConstrainedEnts()
+            local i = 0
+            timer.create("Res",0.01,#Constr,function()
+                i=i+1
+                Cur = Constr[i]
+                printConsole(Cur:class())
+                SCore = Self:getCore()
+                if Co1 ~= 1 then
+                    printColor(Color(200,200,200),"Ship Core Found")
+                    Co1 = 1
+                end
+                if Cur:class() == "stargazer_node" then
+                    Node   = Cur
+                    No1 = 1
+                    printColor(Color(255,150,150),"Resource Node Found")
+                    printConsole(Node)
+                elseif Cur:class() == "st_shield_emitter" then
+                    Shield = Cur
+                    Sh1 = 1
+                    printColor(Color(100,200,250),"Shield Emitter Found")
+                    printConsole(Shield)
+                elseif Cur:class() == "sensor_array" then
+                    Sensor = Cur
+                    Se1 = 1
+                    printColor(Color(100,250,100),"Sensor Array Found")
+                    printConsole(Sensor)
+                end
+                if i == #Constr then
+                    -- Now check your values (probably in another function so this one doesn't become a mammoth).
+                end
+            end)
+            AllCores = find.byClass("ship_core")
+            for i=1,#AllCores do
+                printConsole(AllCores[i])
+                AllCoresOwn[i] = AllCores[i]:owner()
+                printConsole(AllCoresOwn[i]:name():lower())
+            end
+        end
+
+        Page = 2
+        SCore = nil
+        Co1 = 0
+        Node = nil
+        No1 = 0
+        Shield = nil
+        Sh1 = 0
+        Sensor = nil
+        Se1 = 0
+        Alert = 0
+        AllCores = {}
+        AllCoresOwn = {}
+        ShDivert = 0
+        Plating = 0
+
+        TgtHealthMax = 0
+        TgtHealth    = 0
+        TgtArmor     = 0
+        TgtShieldOn  = 0
+        TgtShieldMax = 0
+        TgtShield    = 0
+        TgtName      = ""
+
+        getResources()
+        Load = 1
+
+        timer.create("Refresh",1,0,function()
+            if Co1 == 1 and No1 == 1 and Sh1 == 1 and Se1 == 1 then
+                if Load == 1 then
+                    printColor(Color(255,200,0),"Resources Assigned")
+                    printColor(Color(255,200,0),"Holographic Screen loading finished")
+                    chat.listen(chatMenu,Owner)
+                    chat.listen(tactical,Owner)
+                    Load = 0
+                end
+                Sensor["Target"] = nil
+                HPFull       = SCore:getWirelink()["Max Health"]
+                HP           = SCore:getWirelink()["Health"]
+                Plating      = SCore:getWirelink()["Plating"]
+                ArmourMax    = SCore:getWirelink()["Armour"]
+                Armour       = SCore:getWirelink()["Armour Deployed"]
+
+                EnergyFull   = Node:getWirelink()["Max Energy"]
+                Energy       = Node:getWirelink()["Energy"]
+
+                ShChargeFull = Shield:getWirelink()["Max Charge"]
+                ShCharge     = Shield:getWirelink()["Total Charge"]
+
+                ShLeft   = Shield:getWirelink()["Left"]
+                ShRight  = Shield:getWirelink()["Right"]
+                ShFront  = Shield:getWirelink()["Front"]
+                ShBack   = Shield:getWirelink()["Back"]
+                ShUp     = Shield:getWirelink()["Up"]
+                ShDown   = Shield:getWirelink()["Down"]
+
+                TgtHealthMax = Sensor:getWirelink()["Max Health"]
+                TgtHealth    = Sensor:getWirelink()["Health"]
+                TgtArmor     = Sensor:getWirelink()["Plating"]
+                TgtShieldOn  = Sensor:getWirelink()["Shield Active"]
+                TgtShieldMax = Sensor:getWirelink()["Max Shields"]
+                TgtShield    = Sensor:getWirelink()["Shield Emitter"]
+
+
+                for i=1,#AllCores do
+                    AllCores = find.byClass("ship_core")
+                    if AllCores[i] ~= nil and AllCores[i]:owner() ~= nil then
+                        AllCoresOwn[i] = AllCores[i]:owner()
+                    end
+                    --printConsole(AllCoresOwn[i]:name():lower())
+                end
+
+                if net.start() then
+                    net.writeUInt(Page,3)
+                    net.writeTable({
+                        HPFull,
+                        HP,
+                        EnergyFull,
+                        Energy,
+                        ShChargeFull,
+                        ShCharge,
+                        ShLeft,
+                        ShRight,
+                        ShFront,
+                        ShBack,
+                        ShUp,
+                        ShDown,
+                        ShDivert,
+                        Alert,
+                        TgtHealthMax,
+                        TgtHealth,
+                        TgtArmor,
+                        TgtShieldOn,
+                        TgtShieldMax,
+                        TgtShield,
+                        TgtName,
+                        Plating,
+                        ArmourMax,
+                        Armour
+                    })
+                    net.broadcast()
+                end
+            end
+        end)
+
+
+    end
+elseif CLIENT then
+
+    --Render Stuff
+    function Draw4(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,texture,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y)
+        })
+        if texture ~= nil then
+            render.setTexture(texture)
+        end
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x-1,p1y-1,p2x,p2y-1)
+        render.drawLine(p2x,p2y-1,p3x,p3y)
+        render.drawLine(p3x,p3y,p4x-1,p4y)
+        render.drawLine(p4x-1,p4y,p1x-1,p1y-1)
+    end
+    function Draw6(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,p5x,p5y,p6x,p6y,texture,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y),
+            render.vertex(p5x,p5y),
+            render.vertex(p6x,p6y)
+        })
+        if texture ~= nil then
+            render.setTexture(texture)
+        end
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x-1,p1y-1,p2x,p2y-1)
+        render.drawLine(p2x,p2y-1,p3x,p3y-1)
+        render.drawLine(p3x,p3y-1,p3x,p3y)
+        render.drawLine(p3x,p3y,p4x,p4y)
+        render.drawLine(p4x,p4y,p5x-1,p5y)
+        render.drawLine(p5x-1,p5y,p6x-1,p6y)
+        render.drawLine(p6x-1,p6y-1,p6x-1,p6y)
+        render.drawLine(p6x-1,p6y-1,p1x-1,p1y-1)
+    end
+    function Draw8(press,p1x,p1y,p2x,p2y,p3x,p3y,p4x,p4y,p5x,p5y,p6x,p6y,p7x,p7y,p8x,p8y,texture,col)
+        local Polygon = render.createPoly({
+            render.vertex(p1x,p1y),
+            render.vertex(p2x,p2y),
+            render.vertex(p3x,p3y),
+            render.vertex(p4x,p4y),
+            render.vertex(p5x,p5y),
+            render.vertex(p6x,p6y),
+            render.vertex(p7x,p7y),
+            render.vertex(p8x,p8y)
+        })
+        if texture ~= nil then
+            render.setTexture(texture)
+        end
+        if press == 1 then
+            render.setColor(col[1]+20,col[2]+20,col[3]+20)
+        else
+            render.setColor(col[1],col[2],col[3])
+        end
+        render.drawPoly(Polygon)
+
+        render.setColor(255,255,255)
+        render.drawLine(p1x-1,p1y-1,p2x,p2y-1)
+        render.drawLine(p2x,p2y-1,p3x,p3y-1)
+        render.drawLine(p3x,p3y-1,p4x,p4y)
+        render.drawLine(p4x,p4y,p5x,p5y)
+        render.drawLine(p5x,p5y,p6x-1,p6y)
+        render.drawLine(p6x-1,p6y,p7x-1,p7y)
+        render.drawLine(p7x-1,p7y,p8x-1,p8y-1)
+        render.drawLine(p8x-1,p8y-1,p1x-1,p1y-1)
+    end
+
+    --Menu's
+    function basicMenu(name,y1,y2)
+        --Backgrounds
+        Draw8(0,-130,y1,130,y1,150,y1+30,150,y2-30,130,y2,-130,y2,-150,y2-30,-150,y1+30,nil,BGCol1)
+        Draw6(0,-50,y1+5,50,y1+5,60,y1+13,50,y1+21,-50,y1+21,-60,y1+13,nil,BGCol2)
+
+        --Text
+        render.drawText(Normal,0,y1+5,name,render.TEXT_ALIGN_CENTER)
+    end
+
+    function basicBar(text,name,x1,y1,x2,y2,full,cur,col)
+        if full ~= nil and cur ~= nil then
+            local Fill = x1+(-x1+x2)/full*cur
+            Draw4(on,x1,y1,x2,y1,x2,y2,x1,y2,nil,BGCol2)
+            Draw4(on,x1,y1,Fill,y1,Fill,y2,x1,y2,nil,col)
+            if text == 0 then
+                render.drawText(Normal,(x1+x2)/2,y1-15,name,render.TEXT_ALIGN_CENTER)
+                render.drawText(Meter,(x1+x2)/2,y1,
+                    tostring(math.floor(cur)).."/"..tostring(math.floor(full)),render.TEXT_ALIGN_CENTER)
+            end
+        end
+    end
+
+    function verticalBar(text,name,x1,y1,x2,y2,full,cur,col)
+        if full ~= nil and cur ~= nil then
+            local Fill = y1+(-y1+y2)/full*cur
+            Draw4(on,x1,y1,x2,y1,x2,y2,x1,y2,nil,BGCol2)
+            Draw4(on,x1,y1,x2,y1,x2,Fill,x1,Fill,nil,col)
+            if text == 0 then
+                render.drawText(Normal,(x1+x2)/2,y1-15,name,render.TEXT_ALIGN_CENTER)
+                render.drawText(Meter,(x1+x2)/2,y1,
+                    tostring(math.floor(cur)).."/"..tostring(math.floor(full)),render.TEXT_ALIGN_CENTER)
+            end
+        end
+    end
+
+    function alertDraw(x1,y1,x2,y2,aler)
+        local Alerty = aler
+        if Alerty == 0 then
+            AlertCol = {10,200,10}
+            AlertTxt = "Green Alert"
+        elseif Alerty == 1 then
+            AlertCol = {200,200,10}
+            AlertTxt = "Yellow Alert"
+        elseif Alerty == 2 then
+            AlertCol = {200,10,10}
+            AlertTxt = "Red Alert"
+        end
+        Draw8(0,x1,y1,x2,y1,x2+4,y1+4,x2+4,y2-4,x2,y2,x1,y2,x1-4,y2-4,x1-4,y1+4,nil,AlertCol)
+        render.drawText(Normal,(x1+x2)/2,(y1+y2)/2-8,AlertTxt,render.TEXT_ALIGN_CENTER)
+        --printConsole(alert)
+    end
+
+    function mainMenu()
+        basicMenu("Basic Status",-90,40)
+        basicBar(0,"Ship Health",-100,-50,100,-37,Resources[1],Resources[2],HPCol)
+        basicBar(0,"Energy",-100,-23,100,-10,Resources[3],Resources[4],NRGCol)
+        alertDraw(-50,0,50,30,Resources[14])
+    end
+
+    function shieldDraw(on,left,right,front,back,up,down,full,cur,glow)
+        Draw4(0,-26,-50,38,-50,38,35,-26,35,nil,BGCol2)
+        Draw6(0,0,-40,10,-35,13,20,0,25,-13,20,-10,-35,nil,BGCol1)
+        basicBar(0,"Shield",-100,-70,100,-57,full,cur,ShieldCol)
+        --Left
+        Draw4(glow[1],-26,-50,-20,-45,-20,30,-26,35,nil,BGCol2)
+        if left>0 then
+            Draw4(glow[1],-26,-50,-20,-45,-20,30,-26,35,nil,ShieldCol)
+        end
+        --Right
+        Draw4(glow[2],20,-45,26,-50,26,35,20,30,nil,BGCol2)
+        if right>0 then
+            Draw4(glow[2],20,-45,26,-50,26,35,20,30,nil,ShieldCol)
+        end
+        --Front
+        Draw4(glow[3],-26,-50,26,-50,19,-45,-19,-45,nil,BGCol2)
+        if front>0 then
+            Draw4(glow[3],-26,-50,26,-50,19,-45,-19,-45,nil,ShieldCol)
+        end
+        --Back
+        Draw4(glow[4],-19,30,19,30,26,35,-26,35,nil,BGCol2)
+        if back>0 then
+            Draw4(glow[4],-19,30,19,30,26,35,-26,35,nil,ShieldCol)
+        end
+        --Up
+        Draw4(glow[5],32,-45,34,-45,38,-10,28,-10,nil,BGCol2)
+        if up>0 then
+            Draw4(glow[5],32,-45,34,-45,38,-10,28,-10,nil,ShieldCol)
+        end
+        --Down
+        Draw4(glow[6],28,-8,38,-8,34,30,32,30,nil,BGCol2)
+        if down>0 then
+            Draw4(glow[6],28,-8,38,-8,34,30,32,30,nil,ShieldCol)
+        end
+    end
+
+    function targetInfo()
+        Draw4(0,-140,-50,-30,-50,-30,60,-140,60,nil,BGCol2)
+        if Resources[15] ~= 0 and Resources[16] ~= 0 then
+            basicBar(0,"Target Health",-137,-37,-33,-25,Resources[15],Resources[16],{10,100,10})
+            basicBar(0,"Target Armor",-137,-12,-33,0,100,Resources[17],{200,200,200})
+            basicBar(0,"Target Shields",-137,13,-33,25,Resources[19],Resources[20],{10,100,200})
+            render.drawText(Normal,-85,28,"Target Name:",render.TEXT_ALIGN_CENTER)
+            render.drawText(Normal,-85,40,Resources[21],render.TEXT_ALIGN_CENTER)
+        end
+    end
+
+    function tacticalMenu()
+        basicMenu("Tactical Status",-140,120)
+        basicBar(0,"Health",-100,-100,100,-88,Resources[1],Resources[2],HPCol)
+        shieldDraw(1,Resources[7],Resources[8],Resources[9],
+            Resources[10],Resources[11],Resources[12],Resources[5],Resources[6],Divert)
+        targetInfo()
+        verticalBar(1,"",-6,-35,-2,20,100,Resources[22],{200,200,200})
+        verticalBar(1,"",2,-35,6,20,Resources[23],Resources[24],{230,220,200})
+        alertDraw(-20,40,80,80,Resources[14])
+    end
+
+--    if ents.player() == Owner then
+        Credits = render.createFont("default",10,500,0,0,0,0,0)
+        Normal = render.createFont("default",15,600,true,false,false,false,0)
+        Meter = render.createFont("default",12,600,true,false,false,false,0)
+        Ancient = render.createFont("anquietas",15,1000,true,true,false,false,0)
+
+        Resources = {}
+        Divert = {}
+        Resources[100] = 1
+
+        hook("net","FromServer",function()
+            Page = net.readUInt(3)
+            Resources = net.readTable()
+            Divert = {0,0,0,0,0,0}
+            Divert[Resources[13]] = 1
+            Resources[100] = nil
+        end)
+
+        BGCol1    = {100,100,100}
+        BGCol2    = {70,70,70}
+        ShieldCol = {100,100,200}
+        Page = 1
+
+        Alert = 0
+
+        NRGCol = {150,130,10}
+
+        hook("render","render",function()
+            if Resources[100] ~= 1 then
+                PosX = 15*math.cos(math.rad(Owner:ang()[2]))
+                PosY = 15*math.sin(math.rad(Owner:ang()[2]))
+                if Resources[2]>=(Resources[1]/2) then
+                    HPCol  = {10,100,10}
+                elseif Resources[2]>=(Resources[1]/8) then
+                    HPCol  = {100,70,10}
+                else
+                    HPCol  = {150,10,10}
+                end
+                Alert = 1
+                render.start3D2D(Owner:pos()+Vector(PosX,PosY,60),Angle(0,Owner:ang()[2]-90,90),0.05)
+                    render.clear()
+                    if Page == 1 then
+                        mainMenu()
+                    elseif Page == 2 then
+                        tacticalMenu()
+                    end
+
+                render.end3D2D()
+            end
+        end)
+
+--    end
+end

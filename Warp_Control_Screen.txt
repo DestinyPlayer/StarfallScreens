@@ -39,7 +39,7 @@ if SERVER then
 
 
         function getWarpDrive()
-            ShipEnts = Self:getConstraints()
+            ShipEnts = Self:getSingleConstrainedEnts()
             for i=1, #ShipEnts do
                 local Cur = ShipEnts[i]
                 if Cur:class() == "quantum_slipstream_drive" then
@@ -234,8 +234,8 @@ else
     timer.create("ClientSide",0.5,0,function()
 
         hook("render","Rendering",function()
-            CurX,CurY = Cursor(Owner)
-            Used = Press(Owner)
+            CurX,CurY = Cursor(ents.player())
+            Used = Press(ents.player())
 
             render.clear()
 
