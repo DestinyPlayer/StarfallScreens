@@ -18,7 +18,7 @@ DestNameList = {
 DestList     = {
                     Vector(0,9558.2,8080.0), --Earth
                     Vector(-3730.8,13271.9,9953.2), --Moon
-                    Vector(-7678.3,-7578.7,6848), --Shakurus
+                    Vector(-7678.3,-7578.7,6860), --Shakurus
                     Vector(11407.5,-13066.6,-9280), --Desert
                     Vector(3636.4,8890.4,-6008), --Hiigara
                     Vector(-7235.5,-1247,-4656),  --Lava
@@ -63,9 +63,11 @@ if SERVER then
             WirePad["Energise pad"] = 0
             WirePad["TargetLocation"] = DestList[7]
             WirePad["TargetPad"] = nil
+            timer.stop("reset")
         end
 
         function chatControl(msg,ply)
+            PlayerList = find.allPlayers()
             local Mess = msg:lower():explode(" ")
 
             if Mess[1] == "beam" or Mess[1] == "!beam" or Mess[1] == "/beam" then
@@ -100,16 +102,27 @@ if SERVER then
                     reset()
                 elseif Mess[3] == "to" then
                     for i=1,#DestNameList do
-                        printConsole(i)
+                        --printConsole(i.." - "..DestNameList[i])
                         local Cur1 = DestNameList[i]:lower()
                         local Found = string.find(Cur1,Mess[4])
                         if Found ~= nil then
                             WirePad["TargetLocation"] = DestList[i]
                         end
                     end
+                    for i=1,#PlayerList do
+                        --printConsole(i.." - "..PlayerList[i]:name())
+                        local Cur1 = PlayerList[i]:name():lower()
+                        local Found = string.find(Cur1,Mess[4])
+                        printConsole(Cur1.." --- "..Mess[4].." --- "..tostring(Found))
+                        if Found ~= nil then
+                            WirePad["TargetLocation"] = PlayerList[i]:pos()+Vector(0,0,150)
+                        end
+                    end
                     if WirePad["TargetLocation"] ~= DestList[7] then
                         WirePad["Beam to vector"] = 1
-                        reset()
+                        timer.simple(2,function()
+                            reset()
+                        end)
                     end
                 end --Up/To check
             end --Starting check
@@ -126,10 +139,6 @@ if SERVER then
         Page1 = {}
         Page2 = {}
         if Start ~= 0 then
-            timer.create("Beam Wait",2,0,function()
-
-            end)
-
             hook("net","FromClient",function(Length,Player)
                 Page1[1] = net.readUInt(3)
 
